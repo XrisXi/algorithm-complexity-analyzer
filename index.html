@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algorithm Analyzer - Enhanced Complexity Analysis</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    }
+    
+    @keyframes gridMove {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(50px, 50px); }
+    }
+    
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100%); }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .animate-slide-in {
+      animation: slideIn 0.5s ease-out;
+    }
+    
+    .glow-text {
+      text-shadow: 0 0 10px rgba(0, 255, 150, 0.5),
+                   0 0 20px rgba(0, 255, 150, 0.3),
+                   0 0 30px rgba(0, 255, 150, 0.2);
+    }
+    
+    .glow-border {
+      box-shadow: 0 0 15px rgba(0, 255, 150, 0.3),
+                  inset 0 0 15px rgba(0, 255, 150, 0.1);
+    }
+    
+    textarea:focus, input:focus {
+      outline: none;
+      box-shadow: 0 0 20px rgba(0, 255, 150, 0.4);
+    }
+    
+    .terminal-text::before {
+      content: '> ';
+      color: #00ff96;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Icon components
+    const Play = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+    );
+
+    const Trash2 = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+    );
+
+    const Info = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </svg>
+    );
+
+    const Clock = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+    );
+
+    const Zap = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+    );
+
+    const TrendingUp = ({ size = 24 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+        <polyline points="17 6 23 6 23 12"></polyline>
+      </svg>
+    );
+
+    const AlgorithmAnalyzer = () => {
+      const [code, setCode] = useState('');
+      const [analysis, setAnalysis] = useState(null);
+      const [analyzing, setAnalyzing] = useState(false);
+      const [selectedTab, setSelectedTab] = useState('editor');
+
+      const examples = {
+        tsp: `TSP(cities, n)
+  min_cost = infinity
+  for each permutation P of cities:
+    cost = 0
+    
+    for i = 0 to n-2:
+      cost += distance(P[i], P[i+1])
+    
+    cost += distance(P[n-1], P[0])
+    
+    if cost < min_cost:
+      min_cost = cost
+  return min_cost`,
+        quicksort: `function quicksort(arr, low, high) {
+  if (low < high) {
+    pivot = partition(arr, low, high);
+    quicksort(arr, low, pivot - 1);
+    quicksort(arr, pivot + 1, high);
+  }
+}`,
+        dijkstra: `function dijkstra(graph, start) {
+  dist = new Array(V).fill(Infinity);
+  visited = new Array(V).fill(false);
+  dist[start] = 0;
+  
+  for i = 0 to V-1:
+    u = minDistance(dist, visited);
+    visited[u] = true;
+    
+    for each neighbor v of u:
+      if !visited[v] && dist[u] + weight(u,v) < dist[v]:
+        dist[v] = dist[u] + weight(u,v);
+}`,
+        fibonacci: `function fibonacci(n) {
+  if (n <= 1) return n;
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}`
+      };
+
+      const analyzeAlgorithm = () => {
+        setAnalyzing(true);
+        
+        setTimeout(() => {
+          const result = performAdvancedAnalysis(code);
+          setAnalysis(result);
+          setAnalyzing(false);
+          setSelectedTab('results');
+        }, 800);
+      };
+
+      const performAdvancedAnalysis = (code) => {
+        const lines = code.split('\n').filter(line => line.trim());
+        
+        // Enhanced pattern detection
+        const patterns = detectPatterns(code);
+        
+        let timeComplexity = 'O(1)';
+        let spaceComplexity = 'O(1)';
+        let explanation = [];
+        let steps = [];
+        let algorithmType = 'Unknown';
+        
+        // Detect factorial/permutation patterns (TSP, N-Queens, etc.)
+        if (patterns.hasPermutation || patterns.hasFactorial) {
+          timeComplexity = 'O(n!)';
+          algorithmType = 'Combinatorial/Brute Force';
+          explanation.push('Detected permutation generation pattern');
+          explanation.push('Generates all possible orderings of n elements');
+          steps.push({
+            step: 1,
+            operation: 'Generate all permutations',
+            cost: 'n! permutations',
+            total: 'n!'
+          });
+          if (patterns.loopDepth > 0) {
+            steps.push({
+              step: 2,
+              operation: 'Process each permutation',
+              cost: patterns.loopDepth === 1 ? 'n operations per permutation' : 'n² operations per permutation',
+              total: patterns.loopDepth === 1 ? 'n! × n' : 'n! × n²'
+            });
+            timeComplexity = patterns.loopDepth === 1 ? 'O(n! × n)' : 'O(n! × n²)';
+          }
+          spaceComplexity = 'O(n)';
+        }
+        // Detect exponential backtracking (2^n patterns)
+        else if (patterns.hasBacktracking || (patterns.recursiveCalls.count >= 2 && !patterns.hasMemoization)) {
+          if (patterns.recursiveCalls.count >= 2) {
+            const base = patterns.recursiveCalls.count;
+            timeComplexity = `O(${base}ⁿ)`;
+            algorithmType = 'Exponential/Backtracking';
+            explanation.push(`Detected ${base} recursive calls per level (exponential tree)`);
+            steps.push({
+              step: 1,
+              operation: 'Recursive branching',
+              cost: `${base} recursive calls at each level`,
+              total: `${base}ⁿ (depth n)`
+            });
+          } else {
+            timeComplexity = 'O(2ⁿ)';
+            algorithmType = 'Exponential/Backtracking';
+            explanation.push('Detected backtracking pattern with exponential branching');
+          }
+          spaceComplexity = 'O(n)';
+          explanation.push('Recursion depth creates call stack of size n');
+        }
+        // Detect polynomial patterns
+        else if (patterns.loopDepth >= 3) {
+          timeComplexity = `O(n${patterns.loopDepth === 3 ? '³' : '^' + patterns.loopDepth})`;
+          algorithmType = 'Polynomial';
+          explanation.push(`Detected ${patterns.loopDepth} levels of nested loops`);
+          steps.push({
+            step: 1,
+            operation: `${patterns.loopDepth}-level nested iteration`,
+            cost: 'n × '.repeat(patterns.loopDepth - 1) + 'n',
+            total: `n${patterns.loopDepth === 3 ? '³' : '^' + patterns.loopDepth}`
+          });
+        }
+        else if (patterns.loopDepth === 2) {
+          // Check for divide and conquer with O(n²) merge
+          if (patterns.recursiveCalls.isRecursive && patterns.recursiveCalls.count === 2) {
+            timeComplexity = 'O(n² log n)';
+            algorithmType = 'Divide & Conquer (expensive merge)';
+            explanation.push('Recursive divide with O(n²) merge operation');
+          } else {
+            timeComplexity = 'O(n²)';
+            algorithmType = 'Quadratic';
+            explanation.push('Detected nested loops: 2 levels of iteration');
+          }
+          steps.push({
+            step: 1,
+            operation: 'Outer loop iteration',
+            cost: 'n iterations',
+            total: 'n'
+          });
+          steps.push({
+            step: 2,
+            operation: 'Inner loop iteration (per outer)',
+            cost: 'n iterations',
+            total: 'n × n = n²'
+          });
+        }
+        else if (patterns.loopDepth === 1) {
+          // Check for linearithmic (n log n) patterns
+          if (patterns.recursiveCalls.isRecursive && patterns.recursiveCalls.count >= 2 && patterns.hasMergePattern) {
+            timeComplexity = 'O(n log n)';
+            algorithmType = 'Divide & Conquer';
+            explanation.push('Detected divide-and-conquer with linear merge');
+            steps.push({
+              step: 1,
+              operation: 'Recursive division',
+              cost: 'log n levels',
+              total: 'log n'
+            });
+            steps.push({
+              step: 2,
+              operation: 'Linear work per level',
+              cost: 'n operations',
+              total: 'n log n'
+            });
+          } else {
+            timeComplexity = 'O(n)';
+            algorithmType = 'Linear';
+            explanation.push('Single loop detected: linear time');
+            steps.push({
+              step: 1,
+              operation: 'Loop iteration',
+              cost: 'n iterations',
+              total: 'n'
+            });
+          }
+        }
+        
+        // Binary search / divide and conquer
+        if (patterns.hasBinarySearch && timeComplexity === 'O(1)') {
+          timeComplexity = 'O(log n)';
+          algorithmType = 'Logarithmic';
+          explanation.push('Binary search pattern: dividing search space');
+          steps.push({
+            step: 1,
+            operation: 'Search space division',
+            cost: 'Halves each iteration',
+            total: 'log₂(n)'
+          });
+        }
+        
+        // Enhanced graph algorithms detection
+        if (patterns.hasGraphPattern) {
+          if (patterns.hasDistanceArray && patterns.loopDepth === 2) {
+            timeComplexity = 'O(V²)';
+            algorithmType = 'Graph (Dense)';
+            explanation.push('Detected graph algorithm with adjacency matrix');
+            explanation.push('V = number of vertices');
+            steps.push({
+              step: 1,
+              operation: 'Visit each vertex',
+              cost: 'V iterations',
+              total: 'V'
+            });
+            steps.push({
+              step: 2,
+              operation: 'Check all edges',
+              cost: 'V iterations per vertex',
+              total: 'V²'
+            });
+          } else if (patterns.hasMinHeap || patterns.hasPriorityQueue) {
+            timeComplexity = 'O((V + E) log V)';
+            algorithmType = 'Graph (Dijkstra/A*)';
+            explanation.push('Detected shortest path algorithm with priority queue');
+            explanation.push('V = vertices, E = edges');
+          }
+        }
+        
+        // Space complexity analysis
+        if (patterns.hasArray || patterns.hasMatrix) {
+          if (patterns.hasMatrix || patterns.loopDepth >= 2) {
+            spaceComplexity = 'O(n²)';
+            explanation.push('2D array/matrix allocation');
+          } else {
+            spaceComplexity = 'O(n)';
+            explanation.push('Linear space for array storage');
+          }
+        }
+        
+        if (patterns.recursiveCalls.isRecursive && spaceComplexity === 'O(1)') {
+          spaceComplexity = 'O(n)';
+          explanation.push('Recursion uses call stack space');
+        }
+        
+        if (patterns.hasMemoization) {
+          spaceComplexity = spaceComplexity === 'O(1)' ? 'O(n)' : 'O(n²)';
+          explanation.push('Memoization table storage');
+          timeComplexity = timeComplexity.includes('2ⁿ') ? 'O(n²)' : timeComplexity;
+          if (timeComplexity.includes('2ⁿ')) {
+            explanation.push('Dynamic programming optimization reduces exponential to polynomial');
+          }
+        }
+        
+        const exampleCalcs = calculateExamples(timeComplexity);
+        
+        return {
+          timeComplexity,
+          spaceComplexity,
+          explanation,
+          steps,
+          exampleCalcs,
+          linesOfCode: lines.length,
+          loopCount: patterns.totalLoops,
+          recursiveDepth: patterns.recursiveCalls.isRecursive ? 'Yes' : 'No',
+          algorithmType
+        };
+      };
+
+      const detectPatterns = (code) => {
+        const normalized = code.toLowerCase().replace(/\s+/g, ' ');
+        
+        return {
+          // Loop detection
+          loopDepth: analyzeLoopDepth(code),
+          totalLoops: (code.match(/for\s*\(|for\s+\w+|while\s*\(/gi) || []).length,
+          
+          // Recursion
+          recursiveCalls: detectRecursion(code),
+          
+          // Permutation/Factorial patterns
+          hasPermutation: /permutation|factorial|permute|for\s+each.*permutation/i.test(normalized) ||
+                          /generate.*all|all.*combinations/i.test(normalized),
+          hasFactorial: /n!|factorial|fact\s*\(/i.test(normalized),
+          
+          // Backtracking
+          hasBacktracking: /backtrack|prune|branch.*bound/i.test(normalized),
+          
+          // Binary search
+          hasBinarySearch: (/mid|middle/i.test(code) && (/left|right|start|end/i.test(code))),
+          
+          // Graph patterns
+          hasGraphPattern: /graph|vertex|vertices|edge|neighbor|adjacent/i.test(normalized),
+          hasDistanceArray: /dist\[|distance\[|distances/i.test(normalized),
+          hasMinHeap: /heap|priority.*queue|pq\./i.test(normalized),
+          hasPriorityQueue: /priorityqueue|pqueue|heapq/i.test(normalized),
+          
+          // Data structures
+          hasArray: /\[\]|new array|array\(/i.test(normalized),
+          hasMatrix: /\[\]\[\]|matrix|grid\[.*\]\[/i.test(normalized),
+          
+          // Optimization patterns
+          hasMemoization: /memo|cache|dp\[|memo\[/i.test(normalized),
+          hasMergePattern: /merge|combine|concat.*sort/i.test(normalized),
+        };
+      };
+
+      const analyzeLoopDepth = (code) => {
+        const lines = code.split('\n');
+        let maxDepth = 0;
+        let currentDepth = 0;
+        let braceDepth = 0;
+        let inLoop = [];
+        
+        for (let line of lines) {
+          const trimmed = line.trim();
+          
+          // Count opening braces
+          const openBraces = (trimmed.match(/{/g) || []).length;
+          const closeBraces = (trimmed.match(/}/g) || []).length;
+          
+          // Detect loop start
+          if (/for\s*\(|for\s+\w+|while\s*\(/i.test(trimmed)) {
+            currentDepth++;
+            inLoop.push(braceDepth);
+            maxDepth = Math.max(maxDepth, currentDepth);
+          }
+          
+          braceDepth += openBraces - closeBraces;
+          
+          // Check if we exited a loop
+          while (inLoop.length > 0 && braceDepth <= inLoop[inLoop.length - 1]) {
+            inLoop.pop();
+            currentDepth--;
+          }
+        }
+        
+        return maxDepth;
+      };
+
+      const detectRecursion = (code) => {
+        const functionName = code.match(/function\s+(\w+)|(\w+)\s*\(/);
+        if (!functionName) return { isRecursive: false, count: 0 };
+        
+        const name = functionName[1] || functionName[2];
+        const functionBody = code.substring(code.indexOf(name) + name.length);
+        const calls = functionBody.match(new RegExp('\\b' + name + '\\s*\\(', 'g')) || [];
+        
+        return {
+          isRecursive: calls.length > 0,
+          count: calls.length
+        };
+      };
+
+      const calculateExamples = (complexity) => {
+        const sizes = [10, 100, 1000, 10000];
+        return sizes.map(n => {
+          let operations;
+          
+          if (complexity.includes('n!')) {
+            // Factorial growth
+            if (n <= 10) {
+              operations = factorial(n);
+              if (complexity.includes('× n')) operations *= n;
+              if (complexity.includes('× n²')) operations *= n * n;
+            } else {
+              operations = '> 10^' + Math.floor(n * Math.log10(n));
+            }
+          } else if (complexity.includes('2ⁿ') || complexity.includes('3ⁿ')) {
+            const base = complexity.includes('3ⁿ') ? 3 : 2;
+            operations = n <= 20 ? Math.pow(base, n) : '> 10^' + Math.floor(n * Math.log10(base));
+          } else if (complexity.includes('log')) {
+            if (complexity.includes('n²')) {
+              operations = n * n * Math.ceil(Math.log2(n));
+            } else if (complexity.includes('+ E')) {
+              // Graph: (V + E) log V, assume E ≈ V for simplicity
+              operations = 2 * n * Math.ceil(Math.log2(n));
+            } else {
+              operations = complexity.includes('n ') ? n * Math.ceil(Math.log2(n)) : Math.ceil(Math.log2(n));
+            }
+          } else if (complexity.includes('n³') || complexity.includes('n^3')) {
+            operations = n * n * n;
+          } else if (complexity.includes('n²') || complexity.includes('n^2')) {
+            operations = n * n;
+          } else if (complexity.includes('n')) {
+            operations = n;
+          } else {
+            operations = 1;
+          }
+          
+          return { n, operations };
+        });
+      };
+
+      const factorial = (n) => {
+        if (n <= 1) return 1;
+        let result = 1;
+        for (let i = 2; i <= n; i++) result *= i;
+        return result;
+      };
+
+      const formatNumber = (num) => {
+        if (typeof num === 'string') return num;
+        if (num >= 1e15) return '> 1 quadrillion';
+        if (num >= 1e12) return (num / 1e12).toFixed(1) + 'T';
+        if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+        if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toLocaleString();
+      };
+
+      const getComplexityColor = (complexity) => {
+        if (complexity.includes('!')) return 'from-red-600 to-purple-700';
+        if (complexity.includes('2ⁿ') || complexity.includes('3ⁿ')) return 'from-pink-500 to-purple-600';
+        if (complexity.includes('n³') || complexity.includes('n^3')) return 'from-red-400 to-pink-500';
+        if (complexity.includes('n²')) return 'from-orange-400 to-red-500';
+        if (complexity.includes('n log n')) return 'from-yellow-400 to-orange-500';
+        if (complexity.includes('n') && !complexity.includes('log')) return 'from-blue-400 to-cyan-500';
+        if (complexity.includes('log')) return 'from-green-400 to-emerald-500';
+        return 'from-emerald-400 to-teal-500';
+      };
+
+      return (
+        <div className="min-h-screen bg-black text-white overflow-hidden">
+          {/* Animated background */}
+          <div className="fixed inset-0 opacity-20">
+            <div className="absolute inset-0" style={{
+              backgroundImage: `
+                linear-gradient(rgba(0, 255, 150, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 150, 0.1) 1px, transparent 1px)
+              `,
+              backgroundSize: '50px 50px',
+              animation: 'gridMove 20s linear infinite'
+            }} />
+          </div>
+
+          <div className="fixed inset-0 pointer-events-none opacity-10" style={{
+            background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 150, 0.05) 2px, rgba(0, 255, 150, 0.05) 4px)',
+            animation: 'scanline 8s linear infinite'
+          }} />
+
+          <div className="relative z-10 container mx-auto px-4 py-8 max-w-7xl">
+            <header className="mb-12 text-center">
+              <h1 className="text-6xl font-bold mb-4 glow-text tracking-tight" style={{
+                background: 'linear-gradient(to right, #00ff96, #00d4ff)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontWeight: 700
+              }}>
+                ALGORITHM ANALYZER
+              </h1>
+              <p className="text-xl text-gray-400 tracking-wide">
+                Advanced complexity analysis • O(n!) to O(1) detection
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-2 text-sm text-emerald-400">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full" style={{animation: 'pulse 2s infinite'}} />
+                <span>ENHANCED PATTERN DETECTION ACTIVE</span>
+              </div>
+            </header>
+
+            <div className="flex gap-4 mb-6 border-b border-gray-800">
+              {['editor', 'results', 'examples'].map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setSelectedTab(tab)}
+                  className={`px-6 py-3 font-semibold uppercase tracking-wider transition-all ${
+                    selectedTab === tab
+                      ? 'text-emerald-400 border-b-2 border-emerald-400'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-8">
+              {selectedTab === 'editor' && (
+                <div className="animate-slide-in">
+                  <div className="bg-gray-900 border border-emerald-900/30 rounded-lg overflow-hidden glow-border">
+                    <div className="bg-gray-800 px-4 py-3 flex items-center justify-between border-b border-gray-700">
+                      <span className="text-emerald-400 font-semibold flex items-center gap-2">
+                        <Zap size={16} />
+                        CODE INPUT
+                      </span>
+                      <button
+                        onClick={() => setCode('')}
+                        className="text-gray-400 hover:text-red-400 transition-colors flex items-center gap-2"
+                      >
+                        <Trash2 size={16} />
+                        CLEAR
+                      </button>
+                    </div>
+                    <textarea
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      placeholder="// Paste your algorithm here...
+// Supports: permutations, backtracking, graph algorithms, etc.
+
+function example(n) {
+  for (let i = 0; i < n; i++) {
+    console.log(i);
+  }
+}"
+                      className="w-full h-96 bg-black text-gray-100 p-6 font-mono resize-none border-none focus:outline-none"
+                      style={{ fontSize: '14px', lineHeight: '1.6' }}
+                    />
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <button
+                      onClick={() => setCode(examples.tsp)}
+                      className="bg-gray-900 border border-gray-700 hover:border-red-500 p-4 rounded-lg transition-all text-left"
+                    >
+                      <div className="text-red-400 font-semibold mb-2">TSP (Brute Force)</div>
+                      <div className="text-gray-500 text-sm">O(n! × n) - Factorial</div>
+                    </button>
+                    <button
+                      onClick={() => setCode(examples.quicksort)}
+                      className="bg-gray-900 border border-gray-700 hover:border-yellow-500 p-4 rounded-lg transition-all text-left"
+                    >
+                      <div className="text-yellow-400 font-semibold mb-2">Quick Sort</div>
+                      <div className="text-gray-500 text-sm">O(n log n) - Linearithmic</div>
+                    </button>
+                    <button
+                      onClick={() => setCode(examples.dijkstra)}
+                      className="bg-gray-900 border border-gray-700 hover:border-orange-500 p-4 rounded-lg transition-all text-left"
+                    >
+                      <div className="text-orange-400 font-semibold mb-2">Dijkstra</div>
+                      <div className="text-gray-500 text-sm">O(V²) - Graph</div>
+                    </button>
+                    <button
+                      onClick={() => setCode(examples.fibonacci)}
+                      className="bg-gray-900 border border-gray-700 hover:border-pink-500 p-4 rounded-lg transition-all text-left"
+                    >
+                      <div className="text-pink-400 font-semibold mb-2">Fibonacci</div>
+                      <div className="text-gray-500 text-sm">O(2ⁿ) - Exponential</div>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={analyzeAlgorithm}
+                    disabled={!code.trim() || analyzing}
+                    className="mt-6 w-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 disabled:from-gray-700 disabled:to-gray-600 disabled:cursor-not-allowed text-black font-bold py-4 px-8 rounded-lg transition-all flex items-center justify-center gap-3 text-lg"
+                  >
+                    {analyzing ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        ANALYZING...
+                      </>
+                    ) : (
+                      <>
+                        <Play size={20} />
+                        ANALYZE ALGORITHM
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {selectedTab === 'results' && analysis && (
+                <div className="animate-slide-in space-y-6">
+                  <div className="bg-gradient-to-r from-gray-900 to-gray-800 border border-emerald-500/30 rounded-lg p-6">
+                    <div className="text-emerald-400 text-sm font-semibold mb-2">ALGORITHM TYPE</div>
+                    <div className="text-3xl font-bold text-white">{analysis.algorithmType}</div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 glow-border">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Clock size={24} className="text-emerald-400" />
+                        <h3 className="text-xl font-semibold text-gray-300">Time Complexity</h3>
+                      </div>
+                      <div className={`text-5xl font-bold bg-gradient-to-r ${getComplexityColor(analysis.timeComplexity)} bg-clip-text text-transparent`}>
+                        {analysis.timeComplexity}
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 glow-border">
+                      <div className="flex items-center gap-3 mb-4">
+                        <TrendingUp size={24} className="text-cyan-400" />
+                        <h3 className="text-xl font-semibold text-gray-300">Space Complexity</h3>
+                      </div>
+                      <div className={`text-5xl font-bold bg-gradient-to-r ${getComplexityColor(analysis.spaceComplexity)} bg-clip-text text-transparent`}>
+                        {analysis.spaceComplexity}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Info size={24} className="text-emerald-400" />
+                      <h3 className="text-xl font-semibold">Analysis Details</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {analysis.explanation.map((exp, idx) => (
+                        <div key={idx} className="terminal-text text-gray-300">
+                          {exp}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-gray-700">
+                      <div>
+                        <div className="text-gray-500 text-sm">Lines of Code</div>
+                        <div className="text-2xl font-bold text-emerald-400">{analysis.linesOfCode}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500 text-sm">Loop Count</div>
+                        <div className="text-2xl font-bold text-emerald-400">{analysis.loopCount}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500 text-sm">Recursive</div>
+                        <div className="text-2xl font-bold text-emerald-400">{analysis.recursiveDepth}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {analysis.steps.length > 0 && (
+                    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                      <h3 className="text-xl font-semibold mb-4 text-emerald-400">Calculation Steps</h3>
+                      <div className="space-y-4">
+                        {analysis.steps.map((step, idx) => (
+                          <div key={idx} className="bg-black border border-gray-800 rounded p-4">
+                            <div className="flex items-start gap-4">
+                              <div className="bg-emerald-500 text-black font-bold w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                                {step.step}
+                              </div>
+                              <div className="flex-1">
+                                <div className="text-white font-semibold mb-1">{step.operation}</div>
+                                <div className="text-gray-400 text-sm mb-2">Cost: {step.cost}</div>
+                                <div className="text-emerald-400 font-mono">Total: {step.total}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                    <h3 className="text-xl font-semibold mb-4">Performance Examples</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-700">
+                            <th className="text-left py-3 px-4 text-gray-400 font-semibold">Input Size (n)</th>
+                            <th className="text-left py-3 px-4 text-gray-400 font-semibold">Operations</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {analysis.exampleCalcs.map((calc, idx) => (
+                            <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                              <td className="py-3 px-4 font-mono text-emerald-400">{calc.n.toLocaleString()}</td>
+                              <td className="py-3 px-4 font-mono text-cyan-400">{formatNumber(calc.operations)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedTab === 'results' && !analysis && (
+                <div className="text-center py-20 text-gray-500">
+                  <Info size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>No analysis results yet. Analyze an algorithm first.</p>
+                </div>
+              )}
+
+              {selectedTab === 'examples' && (
+                <div className="animate-slide-in">
+                  <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                    <h3 className="text-2xl font-semibold mb-6 text-emerald-400">Algorithm Complexity Classes</h3>
+                    <div className="space-y-4">
+                      {[
+                        { name: 'Constant Time', complexity: 'O(1)', example: 'Array access, hash table lookup', color: 'emerald', speed: 'Instant' },
+                        { name: 'Logarithmic', complexity: 'O(log n)', example: 'Binary search, balanced tree operations', color: 'green', speed: 'Very Fast' },
+                        { name: 'Linear', complexity: 'O(n)', example: 'Array traversal, linear search', color: 'blue', speed: 'Fast' },
+                        { name: 'Linearithmic', complexity: 'O(n log n)', example: 'Merge sort, heap sort, quick sort (avg)', color: 'yellow', speed: 'Good' },
+                        { name: 'Quadratic', complexity: 'O(n²)', example: 'Bubble sort, selection sort, nested loops', color: 'orange', speed: 'Moderate' },
+                        { name: 'Cubic', complexity: 'O(n³)', example: 'Matrix multiplication, triple nested loops', color: 'red', speed: 'Slow' },
+                        { name: 'Exponential', complexity: 'O(2ⁿ)', example: 'Fibonacci (naive), subsets generation', color: 'pink', speed: 'Very Slow' },
+                        { name: 'Factorial', complexity: 'O(n!)', example: 'TSP brute force, all permutations', color: 'purple', speed: 'Impractical' }
+                      ].map((item, idx) => (
+                        <div key={idx} className="bg-black border border-gray-800 rounded-lg p-4 hover:border-emerald-500/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="font-semibold text-lg text-white mb-1">{item.name}</div>
+                              <div className="text-gray-400 text-sm mb-2">{item.example}</div>
+                              <div className="text-xs text-gray-500">Speed: {item.speed}</div>
+                            </div>
+                            <div className={`text-3xl font-bold text-${item.color}-400 ml-4`}>
+                              {item.complexity}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <footer className="mt-16 text-center text-gray-600 text-sm">
+              <p>Enhanced Algorithm Analyzer • Detects O(n!) to O(1) complexity</p>
+            </footer>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.render(<AlgorithmAnalyzer />, document.getElementById('root'));
+  </script>
+</body>
+</html>
